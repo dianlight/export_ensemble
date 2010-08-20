@@ -53,20 +53,11 @@
 			
 			$dump = new MySQLDump(Symphony::Database());
 
-			$tables = array(
-				'tbl_authors',
-				'tbl_cache',
-				'tbl_entries',
-				'tbl_extensions',
-				'tbl_extensions_delegates',
-				'tbl_fields',
-				'tbl_fields_%',			
-				'tbl_forgotpass',
-				'tbl_pages',
-				'tbl_pages_types',
-				'tbl_sections',
-				'tbl_sections_association'			
-			);
+			$rows  = Symphony::Database()->fetch("SHOW TABLES LIKE '" . Administration::instance()->Configuration->get('tbl_prefix', 'database') . "_%';");		
+			$rows = array_map (create_function ('$x', 'return array_values ($x);'), $rows);
+			$tables = array_map (create_function ('$x', 'return $x[0];'), $rows);
+			$alltables = $tables;
+			
 			
 			## Grab the schema
 			foreach($tables as $t) $sql_schema .= $dump->export($t, MySQLDump::STRUCTURE_ONLY);
@@ -85,9 +76,13 @@
 				'tbl_sections_association'			
 			);			
 			
-			## Field data and entry data schemas needs to be apart of the workspace sql dump
-			$sql_data  = $dump->export('tbl_fields_%', MySQLDump::ALL);
-			$sql_data .= $dump->export('tbl_entries_%', MySQLDump::ALL);
+			## Field data and entry data schemas and unknown tables needs to be apart of the workspace sql dump
+			$sql_data = '';
+			foreach($alltables as $t){
+				$t = str_replace(Administration::instance()->Configuration->get('tbl_prefix', 'database'), 'tbl_', $t);
+				if($t == "tbl_cache" || $t == "tbl_sessions" || $t == "tbl_authors" || in_array($t,$tables) )continue;
+				$sql_data .= $dump->export($t, MySQLDump::ALL);
+			}
 			
 			## Grab the data
 			foreach($tables as $t){
